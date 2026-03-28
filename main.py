@@ -76,17 +76,11 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        FRONTEND_URL,
-        "http://localhost:5173",    # Local dev
-        "http://localhost:3000",    # Alternate local port
-        "https://*.vercel.app",     # Vercel deployments
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],       # Allow GET, POST, PUT, DELETE etc.
-    allow_headers=["*"],       # Allow all headers
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
 
 # ──────────────────────────────────────────────
 # STATIC FILES — Serve QR code images
