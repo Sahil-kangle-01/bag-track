@@ -13,7 +13,7 @@ import string
 import requests
 from datetime import datetime, timezone, timedelta
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "https://bag-track.onrender.com"
 
 # Indian passenger names for realistic demo
 PASSENGER_NAMES = [

@@ -234,3 +234,149 @@ def update_status(bag_id: str, request: StatusUpdateRequest):
         "location": request.location,
         "timestamp": now,
     }
+
+@router.post("/rfid/scan")
+def rfid_scan(payload: dict):
+    """
+    This endpoint is called automatically by RFID readers.
+    
+    In production:
+      - RFID reader at Loading Bay B detects tag RFID-TAG-001
+      - Reader sends POST to this endpoint
+      - Backend finds which bag has this tag
+      - Updates status based on reader location
+    
+    For demo:
+      - Shows the architecture is RFID-ready
+      - Can be tested manually via /docs
+    
+    Body: {
+      "tag_id": "RFID-TAG-001",
+      "reader_location": "Loading Bay B",
+      "reader_id": "READER-GATE-B12"
+    }
+    """
+    
+    tag_id = payload.get("tag_id")
+    reader_location = payload.get("reader_location")
+    reader_id = payload.get("reader_id")
+
+    if not tag_id or not reader_location:
+        raise HTTPException(
+            status_code=400,
+            detail="tag_id and reader_location are required"
+        )
+
+    # Look up bag by RFID tag
+    response = (
+        supabase.table("bags")
+        .select("*")
+        .eq("rfid_tag", tag_id)
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No bag registered with RFID tag {tag_id}"
+        )
+
+    bag = response.data[0]
+    bag_id = bag["bag_id"]
+    current_status = bag["current_status"]
+
+    # Map reader location to status automatically
+    # In production this mapping comes from a config table
+    location_status_map = {
+        "check-in":     "CHECKED_IN",
+        "loading":      "LOADED",
+        "gate":         "IN_TRANSIT",
+        "arrival":      "ARRIVED",
+        "carousel":     "ARRIVED",
+        "exit":         "COLLECTED",
+    }
+
+    # Find matching status from location string
+    new_status = None
+    for keyword, status in location_status_map.items():
+        if keyword.lower() in reader_location.lower():
+            new_status = status
+            break
+
+    if not new_status:
+        new_status = current_status  # Unknown location, keep current
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Update bags table
+    supabase.table("bags").update({
+        "current_status": new_status,
+        "location": reader_location,
+        "last_updated": now,
+    }).eq("bag_id", bag_id).execute()
+
+    # Insert event
+    supabase.table("events").insert({
+        "event_id": generate_id("EVT"),
+        "bag_id": bag_id,
+        "status": new_status,
+        "location": f"{reader_location} (RFID: {reader_id})",
+        "timestamp": now,
+    }).execute()
+
+    return {
+        "success": True,
+        "bag_id": bag_id,
+        "tag_id": tag_id,
+        "detected_at": reader_location,
+        "status_updated_to": new_status,
+        "mode": "RFID_AUTO"
+    }
+
+
+# POST /rfid/register — Link RFID tag to a bag
+@router.post("/rfid/register")
+def register_rfid(payload: dict):
+    """
+    Links an RFID tag to an existing bag at check-in.
+    
+    In production: staff scans RFID tag with handheld reader
+    at check-in counter → tag gets linked to bag in system
+    
+    Body: {
+      "bag_id": "BAG-X7K2P",
+      "tag_id": "RFID-TAG-001"
+    }
+    """
+    bag_id = payload.get("bag_id")
+    tag_id = payload.get("tag_id")
+
+    if not bag_id or not tag_id:
+        raise HTTPException(
+            status_code=400,
+            detail="bag_id and tag_id are required"
+        )
+
+    # Check bag exists
+    response = (
+        supabase.table("bags")
+        .select("bag_id")
+        .eq("bag_id", bag_id)
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Bag not found")
+
+    # Link tag to bag
+    supabase.table("bags").update({
+        "rfid_tag": tag_id
+    }).eq("bag_id", bag_id).execute()
+
+    return {
+        "success": True,
+        "bag_id": bag_id,
+        "rfid_tag": tag_id,
+        "message": f"RFID tag {tag_id} linked to {bag_id}"
+    }
+
