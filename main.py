@@ -22,6 +22,8 @@ import os
 
 from routes import bags, admin
 from services.delay_service import start_delay_detection
+from routes import bags, admin, incidents  # add incidents here
+
 
 
 # ──────────────────────────────────────────────
@@ -98,6 +100,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(bags.router, tags=["Bags"])
 app.include_router(admin.router, tags=["Admin"])
+app.include_router(incidents.router, tags=["Incidents"])
 
 
 # ──────────────────────────────────────────────
