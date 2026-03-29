@@ -202,8 +202,10 @@ def update_status(bag_id: str, request: StatusUpdateRequest):
     if new_status not in allowed_next:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot transition from {current_status} to {new_status}. Allowed: {allowed_next}"
-        )
+            detail=f"Invalid transition. Bag is currently {current_status}. "
+                f"Can only move to: {allowed_next}. "
+                f"Attempted: {new_status}"
+    )
 
     now = datetime.now(timezone.utc).isoformat()
 

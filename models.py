@@ -103,6 +103,8 @@ STATUS_TRANSITIONS = {
     "CHECKED_IN": ["LOADED", "DELAYED"],
     "LOADED":     ["IN_TRANSIT", "DELAYED"],
     "IN_TRANSIT": ["ARRIVED", "DELAYED"],
-    "ARRIVED":    [],           # Terminal state — no more updates allowed
-    "DELAYED":    ["LOADED", "IN_TRANSIT", "ARRIVED"],  # Can recover from delay
+    "ARRIVED":    ["COLLECTED"],
+    "COLLECTED":  [],
+    "DELAYED":    ["LOADED", "IN_TRANSIT", "ARRIVED"],
+    "SECURITY_ALERT": ["ARRIVED"],
 }
